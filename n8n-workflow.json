@@ -1,0 +1,213 @@
+{
+  "name": "AI Telegram Appointment Booking Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ]
+      },
+      "id": "1a2b3c4d-telegram-trigger",
+      "name": "Telegram Trigger",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        250,
+        300
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "telegram-cred-1",
+          "name": "Telegram Bot API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3.6-flash",
+        "options": {
+          "temperature": 0.2
+        },
+        "text": "={{ $json.message.text }}",
+        "systemInstruction": "Extract appointment details (date, time, purpose) from user text. Return JSON with status, date, time, purpose, missingFields, and proposed reply."
+      },
+      "id": "2b3c4d5e-gemini-nlp",
+      "name": "Gemini AI NLP Extractor",
+      "type": "n8n-nodes-base.googleGemini",
+      "typeVersion": 1,
+      "position": [
+        480,
+        300
+      ],
+      "credentials": {
+        "googleGeminiApi": {
+          "id": "gemini-cred-1",
+          "name": "Google Gemini API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.isComplete }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "3c4d5e6f-completeness-check",
+      "name": "Check Request Complete?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        710,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+        "text": "={{ $json.botReply }}",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "id": "4d5e6f7g-ask-missing-info",
+      "name": "Ask Missing Details",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        940,
+        450
+      ]
+    },
+    {
+      "parameters": {
+        "calendar": {
+          "__rl": true,
+          "value": "primary",
+          "mode": "list"
+        },
+        "start": "={{ $json.startDateTime }}",
+        "end": "={{ $json.endDateTime }}"
+      },
+      "id": "5e6f7g8h-check-conflict",
+      "name": "Check Calendar Availability",
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1,
+      "position": [
+        940,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "calendar": {
+          "__rl": true,
+          "value": "primary",
+          "mode": "list"
+        },
+        "summary": "={{ $json.purpose }}",
+        "start": "={{ $json.startDateTime }}",
+        "end": "={{ $json.endDateTime }}",
+        "additionalFields": {
+          "description": "Booked automatically via Telegram AI Booking Agent"
+        }
+      },
+      "id": "6f7g8h9i-create-calendar-event",
+      "name": "Google Calendar / Calendly Create Event",
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1,
+      "position": [
+        1170,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+        "text": "=✅ *Appointment Scheduled!*\n\n📅 *Date:* {{ $json.date }}\n⏰ *Time:* {{ $json.time }}\n📝 *Purpose:* {{ $json.purpose }}\n\nEvent added to Google Calendar successfully!",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "id": "7g8h9i0j-send-confirmation",
+      "name": "Send Telegram Confirmation",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1400,
+        180
+      ]
+    }
+  ],
+  "connections": {
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "Gemini AI NLP Extractor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini AI NLP Extractor": {
+      "main": [
+        [
+          {
+            "node": "Check Request Complete?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Request Complete?": {
+      "main": [
+        [
+          {
+            "node": "Check Calendar Availability",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Ask Missing Details",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Calendar Availability": {
+      "main": [
+        [
+          {
+            "node": "Google Calendar / Calendly Create Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Calendar / Calendly Create Event": {
+      "main": [
+        [
+          {
+            "node": "Send Telegram Confirmation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

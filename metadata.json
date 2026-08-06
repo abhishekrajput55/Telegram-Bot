@@ -1,0 +1,6 @@
+{
+  "name": "AI Telegram Appointment Booking Agent",
+  "description": "An AI-powered Telegram Agent and automation hub that intelligently schedules appointments via Google Calendar or Calendly using natural language processing.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
